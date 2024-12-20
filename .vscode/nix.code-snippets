@@ -1,0 +1,30 @@
+{
+  "snowfall module": {
+    "scope": "nix",
+    "prefix": "mod",
+    "description": "new snowfall module",
+    "body": [
+      "{",
+      "\tlib,",
+      "\tpkgs,",
+      "\tconfig,",
+      "\tnamespace,",
+      "\t...",
+      "}:",
+      "let",
+      "\tinherit (lib) mkIf;",
+      "\tinherit (lib.\\${namespace\\}) mkBoolOpt;",
+      "\tcfg = config.\\${namespace\\}.${1:module};",
+      "in",
+      "{",
+      "\toptions.\\${namespace\\}.${1:module} = {",
+      "\t\tenable = mkBoolOpt ${3:false} \"Enable ${2:Module}\";",
+      "\t};",
+      "",
+      "\tconfig = mkIf cfg.enable {",
+      "\t\t${4}",
+      "\t};",
+      "}"
+    ]
+  }
+}

@@ -1,87 +1,74 @@
 {
   description = "cethien's dotfiles";
 
-  outputs = inputs @ { nixpkgs, home-manager, ... }:
+  outputs = inputs:
     let
-      allowedHosts = [ "tower-of-power" "PC-SOTNIKOW" "LTP-SOTNIKOW" "surface-7" ];
-
-      system = {
-        host = "tower-of-power";
-
-        grubDevice = "/dev/nvme0n1";
-
-        system = "x86_64-linux";
-        profile = {
-          isNixos = builtins.elem system.host [ "tower-of-power" "surface-7" ];
-          isHomePC = builtins.elem system.host [ "tower-of-power" ];
-          isSurface = builtins.elem system.host [ "surface-7" ];
-          isWSL = builtins.elem system.host [ "PC-SOTNIKOW" "LTP-SOTNIKOW" ];
-        };
-      };
-
-      user = {
-        username = "cethien";
-        name = "Boris";
-        authorizedKeys = [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgrZmsUHZn7BAGAl83RUkNejlhJbmLr3lklrlVzy2Zz borislaw.sotnikow@gmx.de"
-        ];
-      };
-
-      pkgs = import nixpkgs {
-        system = system.system;
-        config.allowUnfree = true;
-        overlays = [ inputs.nur.overlays.default ];
+      lib = inputs.snowfall-lib.mkLib {
+        inherit inputs;
+        src = ./.;
       };
     in
-    {
+    lib.mkFlake
+      {
+        inherit inputs;
+        src = ./.;
 
-      nixosConfigurations =
-        if system.profile.isNixos then {
-          "${system.host}" = nixpkgs.lib.nixosSystem {
-            specialArgs = {
-              inherit inputs system user;
-            };
+        channels-config = {
+          allowUnfree = true;
+          permittedInsecurePackages = [ ];
+        };
 
-            modules = [
-              ./configuration.nix
-            ];
-          };
-        } else { };
-
-      homeConfigurations =
-        if !system.profile.isNixos then {
-          "${user.username}" = home-manager.lib.homeManagerConfiguration {
-            inherit pkgs;
-
-            extraSpecialArgs = {
-              inherit inputs system user;
-            };
-
-            modules = [
-              ./home.nix
-            ];
-          };
-        } else { };
-
-      devShells.x86_64-linux.default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          git
-          just
-          nil
-          nixpkgs-fmt
+        overlays = with inputs; [
+          nur.overlays.default
         ];
 
-        shellHook = ''
-          if [ ! -f .envrc ]; then
-            echo "use flake" > .envrc && direnv allow
-          fi
-        '';
-      };
-    };
+        systems.modules.nixos = with inputs; [
+          home-manager.nixosModules.home-manager
+          catppuccin.nixosModules.catppuccin
+        ];
 
+        systems.hosts.surface.modules = with inputs; [
+          nixos-hardware.nixosModules.microsoft-surface-pro-intel
+        ];
+
+        homes.modules = with inputs; [
+          nur.modules.homeManager.default
+          catppuccin.homeManagerModules.catppuccin
+          spicetify-nix.homeManagerModules.default
+        ];
+
+      } // {
+      devShells.x86_64-linux.default =
+        let
+          system = "x86_64-linux";
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          };
+        in
+        pkgs.mkShell {
+          buildInputs = with pkgs; [
+            git
+            just
+            nil
+            nixpkgs-fmt
+          ];
+
+          shellHook = ''
+            if [ ! -f .envrc ]; then
+              echo "use flake" > .envrc && direnv allow
+            fi
+          '';
+        };
+    };
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    snowfall-lib.url = "github:snowfallorg/lib";
+    snowfall-lib.inputs.nixpkgs.follows = "nixpkgs";
+
+    nixos-hardware.url = "github:nixos/nixos-hardware";
 
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
@@ -93,7 +80,5 @@
 
     spicetify-nix.url = "github:Gerg-L/spicetify-nix";
     spicetify-nix.inputs.nixpkgs.follows = "nixpkgs";
-
-    nixos-hardware.url = "github:nixos/nixos-hardware";
   };
 }
